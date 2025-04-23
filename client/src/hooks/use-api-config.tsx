@@ -52,12 +52,17 @@ export function ApiConfigProvider({ children }: { children: ReactNode }) {
     },
   });
 
-  // If no config is found, show settings modal
+  // If no config is found, show settings modal (once)
   useEffect(() => {
-    if (!isFetching && !apiConfig && !error) {
+    // Only show the modal if:
+    // 1. We've completed fetching
+    // 2. No config exists
+    // 3. No error occurred
+    // 4. The modal isn't already showing (this prevents infinite loop)
+    if (!isFetching && !apiConfig && !error && !showSettingsModal) {
       setShowSettingsModal(true);
     }
-  }, [apiConfig, isFetching, error]);
+  }, [apiConfig, isFetching, error, showSettingsModal]);
 
   // Save API configuration
   const { mutateAsync: saveApiConfig, isPending: isSaving } = useMutation({

@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useMemo } from "react";
 import { useN8nWorkflows } from "@/hooks/use-n8n-workflows";
 import { useN8nExecutions } from "@/hooks/use-n8n-executions";
 import { useApiConfig } from "@/hooks/use-api-config";
@@ -40,22 +40,23 @@ export default function Dashboard() {
   const [statusFilter, setStatusFilter] = useState("all");
   const [filteredWorkflows, setFilteredWorkflows] = useState<Workflow[]>([]);
   
-  // Calculate statistics from workflows
-  const activeWorkflows = workflows?.filter(w => w.active).length || 0;
-  const executionsToday = executions?.length || 0;
-  const failedRuns = workflows?.reduce((count, workflow) => 
-    count + (workflow.statistics?.failedExecutions || 0), 0) || 0;
-  const successRate = workflows?.length ? 
-    workflows.reduce((total, workflow) => 
-      total + (workflow.statistics?.successRate || 0), 0) / workflows.length : 0;
-    
-  // Create an object for easy consumption in the JSX
-  const stats = {
-    activeWorkflows,
-    executionsToday,
-    failedRuns,
-    successRate
-  };
+  // Calculate statistics from workflows - memoize this calculation
+  const stats = useMemo(() => {
+    const activeWorkflows = workflows?.filter(w => w.active).length || 0;
+    const executionsToday = executions?.length || 0;
+    const failedRuns = workflows?.reduce((count, workflow) => 
+      count + (workflow.statistics?.failedExecutions || 0), 0) || 0;
+    const successRate = workflows?.length ? 
+      workflows.reduce((total, workflow) => 
+        total + (workflow.statistics?.successRate || 0), 0) / workflows.length : 0;
+      
+    return {
+      activeWorkflows,
+      executionsToday,
+      failedRuns,
+      successRate
+    };
+  }, [workflows, executions]);
   
   // Filter workflows based on search and status
   useEffect(() => {
