@@ -20,7 +20,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { Workflow } from "@/lib/types";
 
 export default function Dashboard() {
-  const { isConfigured } = useApiConfig();
+  const { isConfigured, setShowSettingsModal } = useApiConfig();
   const { 
     workflows,
     isLoading: isLoadingWorkflows
@@ -41,14 +41,20 @@ export default function Dashboard() {
   const [filteredWorkflows, setFilteredWorkflows] = useState<Workflow[]>([]);
   
   // Calculate statistics from workflows
+  const activeWorkflows = workflows?.filter(w => w.active).length || 0;
+  const executionsToday = executions?.length || 0;
+  const failedRuns = workflows?.reduce((count, workflow) => 
+    count + (workflow.statistics?.failedExecutions || 0), 0) || 0;
+  const successRate = workflows?.length ? 
+    workflows.reduce((total, workflow) => 
+      total + (workflow.statistics?.successRate || 0), 0) / workflows.length : 0;
+    
+  // Create an object for easy consumption in the JSX
   const stats = {
-    activeWorkflows: workflows?.filter(w => w.active).length || 0,
-    executionsToday: executions?.length || 0,
-    failedRuns: workflows?.reduce((count, workflow) => 
-      count + (workflow.statistics?.failedExecutions || 0), 0) || 0,
-    successRate: workflows?.length ? 
-      workflows.reduce((total, workflow) => 
-        total + (workflow.statistics?.successRate || 0), 0) / workflows.length : 0
+    activeWorkflows,
+    executionsToday,
+    failedRuns,
+    successRate
   };
   
   // Filter workflows based on search and status
@@ -96,9 +102,7 @@ export default function Dashboard() {
             Please configure your n8n API settings to get started
           </p>
           <Button 
-            onClick={() => document.querySelector('[data-testid="settings-button"]')?.dispatchEvent(
-              new MouseEvent('click', { bubbles: true })
-            )}
+            onClick={() => setShowSettingsModal(true)}
           >
             Configure Settings
           </Button>
