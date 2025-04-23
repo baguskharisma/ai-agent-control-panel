@@ -3,6 +3,8 @@ import {
   workflowAlerts, type WorkflowAlert, type InsertWorkflowAlert,
   webhookTests, type WebhookTest, type InsertWebhookTest
 } from "@shared/schema";
+import { db } from './db';
+import { eq } from 'drizzle-orm';
 
 export interface IStorage {
   // N8n Config
@@ -24,111 +26,143 @@ export interface IStorage {
   deleteWebhookTest(id: number): Promise<void>;
 }
 
-export class MemStorage implements IStorage {
-  private n8nConfig: N8nConfig | undefined;
-  private workflowAlerts: Map<number, WorkflowAlert>;
-  private webhookTests: Map<number, WebhookTest>;
-  private alertId: number;
-  private webhookTestId: number;
-
-  constructor() {
-    this.workflowAlerts = new Map();
-    this.webhookTests = new Map();
-    this.alertId = 1;
-    this.webhookTestId = 1;
-  }
-
+export class DatabaseStorage implements IStorage {
   // N8n Config Methods
   async getN8nConfig(): Promise<N8nConfig | undefined> {
-    return this.n8nConfig;
+    const configs = await db.select().from(n8nConfigs).limit(1);
+    return configs.length > 0 ? configs[0] : undefined;
   }
 
   async saveN8nConfig(config: InsertN8nConfig): Promise<N8nConfig> {
-    const newConfig = {
-      id: 1,
-      ...config
-    };
-    this.n8nConfig = newConfig;
-    return newConfig;
+    const existingConfig = await this.getN8nConfig();
+    
+    if (!existingConfig) {
+      // Create new config with default values for required fields
+      const configWithDefaults = {
+        ...config,
+        id: 1,
+        refreshInterval: config.refreshInterval ?? 60,
+        notificationsEnabled: config.notificationsEnabled ?? true
+      };
+      
+      const [newConfig] = await db.insert(n8nConfigs)
+        .values(configWithDefaults)
+        .returning();
+      
+      return newConfig;
+    } else {
+      // Update existing config, maintaining defaults for any unspecified fields
+      const [updatedConfig] = await db.update(n8nConfigs)
+        .set({
+          apiUrl: config.apiUrl,
+          apiKey: config.apiKey,
+          refreshInterval: config.refreshInterval ?? existingConfig.refreshInterval,
+          notificationsEnabled: config.notificationsEnabled ?? existingConfig.notificationsEnabled
+        })
+        .where(eq(n8nConfigs.id, existingConfig.id))
+        .returning();
+      
+      return updatedConfig;
+    }
   }
-
+  
   // Workflow Alerts Methods
   async getAllWorkflowAlerts(): Promise<WorkflowAlert[]> {
-    return Array.from(this.workflowAlerts.values());
+    return await db.select().from(workflowAlerts);
   }
 
   async getWorkflowAlert(id: number): Promise<WorkflowAlert | undefined> {
-    return this.workflowAlerts.get(id);
+    const alerts = await db.select()
+      .from(workflowAlerts)
+      .where(eq(workflowAlerts.id, id));
+    
+    return alerts.length > 0 ? alerts[0] : undefined;
   }
 
   async createWorkflowAlert(alert: InsertWorkflowAlert): Promise<WorkflowAlert> {
-    const id = this.alertId++;
-    const newAlert: WorkflowAlert = {
+    // Add defaults for required fields
+    const alertWithDefaults = {
       ...alert,
-      id,
-      createdAt: new Date()
+      threshold: alert.threshold ?? 3,
+      enabled: alert.enabled ?? true
     };
-    this.workflowAlerts.set(id, newAlert);
+    
+    const [newAlert] = await db.insert(workflowAlerts)
+      .values(alertWithDefaults)
+      .returning();
+    
     return newAlert;
   }
 
   async updateWorkflowAlert(id: number, alert: Partial<InsertWorkflowAlert>): Promise<WorkflowAlert> {
-    const existingAlert = this.workflowAlerts.get(id);
+    const existingAlert = await this.getWorkflowAlert(id);
+    
     if (!existingAlert) {
-      throw new Error(`Workflow alert with id ${id} not found`);
+      throw new Error(`Alert with id ${id} not found`);
     }
     
-    const updatedAlert = {
-      ...existingAlert,
-      ...alert
-    };
+    const [updatedAlert] = await db.update(workflowAlerts)
+      .set(alert)
+      .where(eq(workflowAlerts.id, id))
+      .returning();
     
-    this.workflowAlerts.set(id, updatedAlert);
     return updatedAlert;
   }
 
   async deleteWorkflowAlert(id: number): Promise<void> {
-    this.workflowAlerts.delete(id);
+    await db.delete(workflowAlerts)
+      .where(eq(workflowAlerts.id, id));
   }
-
+  
   // Webhook Tests Methods
   async getAllWebhookTests(): Promise<WebhookTest[]> {
-    return Array.from(this.webhookTests.values());
+    return await db.select().from(webhookTests);
   }
 
   async getWebhookTest(id: number): Promise<WebhookTest | undefined> {
-    return this.webhookTests.get(id);
+    const tests = await db.select()
+      .from(webhookTests)
+      .where(eq(webhookTests.id, id));
+    
+    return tests.length > 0 ? tests[0] : undefined;
   }
 
   async createWebhookTest(webhookTest: InsertWebhookTest): Promise<WebhookTest> {
-    const id = this.webhookTestId++;
-    const newWebhookTest: WebhookTest = {
+    // Add defaults for required fields
+    const webhookWithDefaults = {
       ...webhookTest,
-      id,
-      createdAt: new Date()
+      method: webhookTest.method ?? 'GET',
+      headers: webhookTest.headers ?? {},
+      body: webhookTest.body ?? null
     };
-    this.webhookTests.set(id, newWebhookTest);
-    return newWebhookTest;
+    
+    const [newTest] = await db.insert(webhookTests)
+      .values(webhookWithDefaults)
+      .returning();
+    
+    return newTest;
   }
 
   async updateWebhookTest(id: number, webhookTest: Partial<InsertWebhookTest>): Promise<WebhookTest> {
-    const existingWebhookTest = this.webhookTests.get(id);
-    if (!existingWebhookTest) {
+    const existingTest = await this.getWebhookTest(id);
+    
+    if (!existingTest) {
       throw new Error(`Webhook test with id ${id} not found`);
     }
     
-    const updatedWebhookTest = {
-      ...existingWebhookTest,
-      ...webhookTest
-    };
+    const [updatedTest] = await db.update(webhookTests)
+      .set(webhookTest)
+      .where(eq(webhookTests.id, id))
+      .returning();
     
-    this.webhookTests.set(id, updatedWebhookTest);
-    return updatedWebhookTest;
+    return updatedTest;
   }
 
   async deleteWebhookTest(id: number): Promise<void> {
-    this.webhookTests.delete(id);
+    await db.delete(webhookTests)
+      .where(eq(webhookTests.id, id));
   }
 }
 
-export const storage = new MemStorage();
+// Using DatabaseStorage
+export const storage = new DatabaseStorage();
