@@ -40,50 +40,57 @@ export default function Performance() {
   const [durationData, setDurationData] = useState<any[]>([]);
   const [statusDistribution, setStatusDistribution] = useState<any[]>([]);
   
+  // Initialize demo data on component mount only - not on every render
   useEffect(() => {
-    if (isLoadingWorkflows || isLoadingExecutions) return;
+    // Only generate data once when component loads to avoid flickering metrics
+    if (!executionTrendData.length) {
+      // Generate execution trend data (last 7 days)
+      const trend = [];
+      for (let i = 6; i >= 0; i--) {
+        const date = new Date();
+        date.setDate(date.getDate() - i);
+        const dayStr = date.toLocaleDateString('en-US', { weekday: 'short' });
+        
+        // Fixed sample data - in real app this would come from executions
+        trend.push({
+          name: dayStr,
+          executions: 50 + (i * 5),
+          errors: 5 + i,
+        });
+      }
+      setExecutionTrendData(trend);
+      
+      // Generate duration data
+      const durations = [];
+      for (let i = 0; i < 10; i++) {
+        // Fixed data values to avoid constant changes
+        durations.push({
+          name: `Workflow ${i+1}`,
+          avgDuration: 0.5 + (i * 0.3),
+        });
+      }
+      setDurationData(durations);
+      
+      // Generate status distribution
+      setStatusDistribution([
+        { name: 'Success', value: 75 },
+        { name: 'Error', value: 15 },
+        { name: 'Partial', value: 10 },
+      ]);
+    }
+  }, [executionTrendData.length]);
+
+  // Update filtered workflow when selection changes
+  useEffect(() => {
+    if (isLoadingWorkflows) return;
     
-    // Update filtered workflow
     if (selectedWorkflow === "all") {
       setFilteredWorkflow(null);
     } else {
       const selected = workflows?.find(w => w.id === selectedWorkflow) || null;
       setFilteredWorkflow(selected);
     }
-    
-    // Generate execution trend data (last 7 days)
-    const trend = [];
-    for (let i = 6; i >= 0; i--) {
-      const date = new Date();
-      date.setDate(date.getDate() - i);
-      const dayStr = date.toLocaleDateString('en-US', { weekday: 'short' });
-      
-      // Random data for demo - in real app this would come from executions
-      trend.push({
-        name: dayStr,
-        executions: Math.floor(Math.random() * 100) + 10,
-        errors: Math.floor(Math.random() * 10),
-      });
-    }
-    setExecutionTrendData(trend);
-    
-    // Generate duration data
-    const durations = [];
-    for (let i = 0; i < 10; i++) {
-      durations.push({
-        name: `Workflow ${i+1}`,
-        avgDuration: Math.random() * 3 + 0.5,
-      });
-    }
-    setDurationData(durations);
-    
-    // Generate status distribution
-    setStatusDistribution([
-      { name: 'Success', value: 75 },
-      { name: 'Error', value: 15 },
-      { name: 'Partial', value: 10 },
-    ]);
-  }, [isLoadingWorkflows, isLoadingExecutions, workflows, executions, selectedWorkflow]);
+  }, [isLoadingWorkflows, workflows, selectedWorkflow]);
 
   return (
     <div className="p-4 lg:p-8 max-w-7xl mx-auto">

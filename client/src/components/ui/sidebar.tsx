@@ -19,18 +19,17 @@ interface SidebarLinkProps {
 
 const SidebarLink = ({ href, icon, children, isActive }: SidebarLinkProps) => {
   return (
-    <Link href={href}>
-      <a
-        className={cn(
-          "flex items-center px-3 py-2.5 rounded-n8n text-white transition-colors duration-150 ease-in-out",
-          isActive
-            ? "bg-primary bg-opacity-10 text-primary font-medium"
-            : "hover:bg-muted text-foreground"
-        )}
-      >
-        <span className="mr-3 text-lg">{icon}</span>
-        <span>{children}</span>
-      </a>
+    <Link 
+      href={href}
+      className={cn(
+        "flex items-center px-3 py-2.5 rounded-n8n text-white transition-colors duration-150 ease-in-out",
+        isActive
+          ? "bg-primary bg-opacity-10 text-primary font-medium"
+          : "hover:bg-muted text-foreground"
+      )}
+    >
+      <span className="mr-3 text-lg">{icon}</span>
+      <span>{children}</span>
     </Link>
   );
 };
